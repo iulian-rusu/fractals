@@ -1,4 +1,4 @@
-use crate::app::App;
+use crate::app::FractalExplorerApp;
 mod app;
 mod color;
 mod render;
@@ -9,10 +9,11 @@ const WIDTH: usize = 1000;
 const HEIGHT: usize = 1000;
 
 fn main() {
-    let mut app = App::new(
+    let mut app = FractalExplorerApp::new(
         "Julia Sets. (WASD to move, Arrow Keys to modify seed, R to reset)",
         WIDTH,
         HEIGHT,
+        rules::julia,
     );
     app.main_loop();
 }
