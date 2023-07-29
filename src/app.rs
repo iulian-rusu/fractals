@@ -1,9 +1,9 @@
 use minifb::{Key, Window, WindowOptions};
 
 use crate::{
-    color::color_grayscale,
-    render::{Pixel, RenderParams, Renderer},
-    shared::{directon, Complex, IterationComputer},
+    color::Rgb,
+    render::{RenderParams, Renderer},
+    shared::{directon, ColorComputer, Complex},
 };
 
 const INITIAL_SCALE: f64 = 1.0;
@@ -14,11 +14,11 @@ const INITIAL_OFFSET: Complex = Complex::new(0.0, 0.0);
 const INITIAL_SEED: Complex = Complex::new(-0.78, 0.136);
 const RENDER_THREADS: usize = 16;
 
-pub struct FractalExplorerApp<F: IterationComputer> {
+pub struct FractalExplorerApp<F: ColorComputer(Complex, Complex) -> Rgb> {
     window: Window,
     renderer: Renderer,
     buffer: Vec<u32>,
-    iter_computer: F,
+    color_computer: F,
     width: usize,
     height: usize,
     scale: f64,
@@ -27,14 +27,14 @@ pub struct FractalExplorerApp<F: IterationComputer> {
     should_redraw: bool,
 }
 
-impl<F: IterationComputer> FractalExplorerApp<F> {
-    pub fn new(title: impl AsRef<str>, width: usize, height: usize, iter_computer: F) -> Self {
+impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
+    pub fn new(title: impl AsRef<str>, width: usize, height: usize, color_computer: F) -> Self {
         Self {
             window: Window::new(title.as_ref(), width, height, WindowOptions::default())
                 .unwrap_or_else(|e| panic!("{}", e)),
             renderer: Renderer::new(RENDER_THREADS),
             buffer: vec![0u32; width * height],
-            iter_computer,
+            color_computer,
             width,
             height,
             scale: INITIAL_SCALE,
@@ -111,14 +111,14 @@ impl<F: IterationComputer> FractalExplorerApp<F> {
             offset: self.offset,
             color_computer: {
                 let seed = self.seed;
-                let iter_computer: F = self.iter_computer.clone();
-                move |z| color_grayscale(iter_computer(seed, z))
+                let color_computer = self.color_computer.clone();
+                move |z| color_computer(z, seed)
             },
         });
 
         self.buffer = pixels
             .into_iter()
-            .map(|Pixel { color, .. }| u32::from_be_bytes([0, color.0, color.1, color.2]))
+            .map(|color| u32::from_be_bytes([0, color.0, color.1, color.2]))
             .collect();
 
         self.print_state();

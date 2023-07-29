@@ -9,21 +9,13 @@ use futures::{
 };
 use itertools::Itertools;
 
-#[derive(Debug, Clone, Copy)]
-pub struct Pixel {
-    pub x: usize,
-    pub y: usize,
-    pub color: Rgb,
-}
-
-impl Pixel {
-    pub fn new(x: usize, y: usize, color: Rgb) -> Self {
-        Self { x, y, color }
-    }
+struct RenderedChunk {
+    pub pixels: Vec<Rgb>,
+    pub index: usize,
 }
 
 #[derive(Debug, Clone)]
-pub struct RenderParams<F: ColorComputer> {
+pub struct RenderParams<F: ColorComputer(Complex) -> Rgb> {
     pub width: usize,
     pub height: usize,
     pub scale: f64,
@@ -31,7 +23,6 @@ pub struct RenderParams<F: ColorComputer> {
     pub color_computer: F,
 }
 
-#[derive(Debug)]
 pub struct Renderer {
     thread_pool: ThreadPool,
     pool_size: usize,
@@ -49,10 +40,10 @@ impl Renderer {
         }
     }
 
-    pub fn render_pixels<F: ColorComputer>(
+    pub fn render_pixels<F: ColorComputer(Complex) -> Rgb>(
         &self,
         params: RenderParams<F>,
-    ) -> impl Iterator<Item = Pixel> {
+    ) -> impl Iterator<Item = Rgb> {
         let coords = (0..params.height).cartesian_product(0..params.width);
 
         // Rows are divided into chunks to be rendered by a thread pool.
@@ -65,25 +56,24 @@ impl Renderer {
             .map(|chunk| chunk.collect())
             .map(move |coords: Vec<_>| {
                 self.thread_pool
-                    .spawn_with_handle(self.render_task(coords, params.clone()))
+                    .spawn_with_handle(self.render_chunk(coords, params.clone()))
                     .expect("Failed to spawn render task")
                     .into_stream()
             })
             .collect();
 
         block_on_stream(futures::stream::select_all(handles))
-            // Results are computed asynchronously and will appear in non-sequential order.
-            // Since task distribution between workers is done based on row index (y coordinate),
-            // we can sort the vectors by using the y coordinate of the first element.
-            .sorted_by_key(|v| v.first().map(|p| p.y))
+            // Results must be sorted because each chunk is rendered in non-deterministic order.
+            .sorted_by_key(|chunk| chunk.index)
+            .map(|chunk| chunk.pixels)
             .flatten()
     }
 
-    fn render_task<F: ColorComputer>(
+    fn render_chunk<F: ColorComputer(Complex) -> Rgb>(
         &self,
-        coords: Vec<(usize, usize)>,
+        chunk_coords: Vec<(usize, usize)>,
         params: RenderParams<F>,
-    ) -> impl Future<Output = Vec<Pixel>> {
+    ) -> impl Future<Output = RenderedChunk> {
         let RenderParams {
             width,
             height,
@@ -95,16 +85,19 @@ impl Renderer {
         async move {
             let inv_width = 1.0 / width as f64;
             let inv_height = 1.0 / height as f64;
-            coords
+            let chunk_start = chunk_coords.first().map(|c| c.0).unwrap_or_default();
+            let pixels = chunk_coords
                 .into_iter()
                 // Bind as (y, x) because the cartesian product is (0..height) X (0..width)
                 .map(|(y, x)| {
                     let zx = scale * (inv_width * x as f64 - 0.5);
                     let zy = scale * (inv_height * y as f64 - 0.5);
                     let z = Complex::new(zx, zy);
-                    Pixel::new(x, y, color_computer(z - offset))
+                    color_computer(z - offset)
                 })
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>();
+
+            RenderedChunk { pixels, index: chunk_start }
         }
     }
 }

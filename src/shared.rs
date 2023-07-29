@@ -1,3 +1,5 @@
+use std::marker::Tuple;
+
 use crate::color::Rgb;
 
 pub type Complex = nalgebra::Complex<f64>;
@@ -14,10 +16,7 @@ pub mod directon {
 pub trait Shareable: Send + Clone + 'static {}
 impl<T: Send + Clone + 'static> Shareable for T {}
 
-/// Computes the RGB color asigned to a given complex number
-pub trait ColorComputer: Fn(Complex) -> Rgb + Shareable {}
-impl<T: Fn(Complex) -> Rgb + Shareable> ColorComputer for T {}
-
-/// Computes the number of iterations starting from a pair (seed, z) of complex numbers
-pub trait IterationComputer: Fn(Complex, Complex) -> u8 + Shareable {}
-impl<T: Fn(Complex, Complex) -> u8 + Shareable> IterationComputer for T {}
+/// Trait for types which can be used by a renderer to compute RGB values.
+/// The type has to be "nice" enough to allow cloning and sending to other threads, hence the `Shareable` requirement.
+pub trait ColorComputer<Args: Tuple>: Fn<Args, Output = Rgb> + Shareable {}
+impl<Args: Tuple, T: Fn<Args, Output = Rgb> + Shareable> ColorComputer<Args> for T {}
