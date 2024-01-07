@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use minifb::{Key, Window, WindowOptions};
 
 use crate::{
@@ -12,7 +14,7 @@ const SEED_DELTA: f64 = 0.001;
 const OFFSET_DELTA: f64 = 0.02;
 const INITIAL_OFFSET: Complex = Complex::new(0.0, 0.0);
 const INITIAL_SEED: Complex = Complex::new(-0.78, 0.136);
-const RENDER_THREADS: usize = 16;
+const DEFAULT_RENDER_THREAD_COUNT: usize = 16;
 
 pub struct FractalExplorerApp<F: ColorComputer(Complex, Complex) -> Rgb> {
     window: Window,
@@ -27,12 +29,18 @@ pub struct FractalExplorerApp<F: ColorComputer(Complex, Complex) -> Rgb> {
     should_redraw: bool,
 }
 
+fn resolve_render_thread_count() -> usize {
+    std::thread::available_parallelism()
+        .map(NonZeroUsize::get)
+        .unwrap_or(DEFAULT_RENDER_THREAD_COUNT)
+}
+
 impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
     pub fn new(title: impl AsRef<str>, width: usize, height: usize, color_computer: F) -> Self {
         Self {
             window: Window::new(title.as_ref(), width, height, WindowOptions::default())
                 .unwrap_or_else(|e| panic!("{}", e)),
-            renderer: Renderer::new(RENDER_THREADS),
+            renderer: Renderer::new(resolve_render_thread_count()),
             buffer: vec![0u32; width * height],
             color_computer,
             width,

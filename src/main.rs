@@ -1,4 +1,4 @@
-#![feature(unboxed_closures, fn_traits, tuple_trait)]
+#![feature(unboxed_closures, fn_traits, tuple_trait, int_roundings)]
 
 use crate::app::FractalExplorerApp;
 
