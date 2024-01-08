@@ -42,7 +42,7 @@ impl Renderer {
         }
     }
 
-    pub fn render_pixels<F: ColorComputer(Complex) -> Rgb>(
+    pub fn render<F: ColorComputer(Complex) -> Rgb>(
         &self,
         params: RenderParams<F>,
     ) -> impl Iterator<Item = Rgb> {

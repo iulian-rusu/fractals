@@ -113,7 +113,7 @@ impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
 
     fn redraw(&mut self) {
         let start = Instant::now();
-        let pixels = self.renderer.render_pixels(RenderParams {
+        let pixels = self.renderer.render(RenderParams {
             width: self.width,
             height: self.height,
             scale: self.scale,
@@ -124,10 +124,8 @@ impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
                 move |z| color_computer(z, seed)
             },
         });
-        self.buffer = pixels
-            .into_iter()
-            .map(|color| u32::from_be_bytes([0, color.0, color.1, color.2]))
-            .collect();
+        self.buffer.clear();
+        self.buffer.extend(pixels.map(Rgb::as_u32));
         let elapsed = start.elapsed();
 
         println!("[Rendered {} pixels in {} ms]", self.buffer.len(), elapsed.as_millis());
