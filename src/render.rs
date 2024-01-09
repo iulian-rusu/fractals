@@ -1,4 +1,4 @@
-use std::{ops::Range, usize};
+use std::{cmp::max, ops::Range, usize};
 
 use crate::{
     color::Rgb,
@@ -84,15 +84,18 @@ impl Renderer {
         } = params;
 
         async move {
-            let inv_width = 1.0 / width as f64;
-            let inv_height = 1.0 / height as f64;
-            let pixels = chunk_rows
+            let max_dimension = max(width, height);
+            let scale_x = scale / max_dimension as f64;
+            let scale_y = scale / max_dimension as f64;
+            let half_width = width as f64 * 0.5;
+            let half_height = height as f64 * 0.5;
+            let pixels: Vec<Rgb> = chunk_rows
                 .cartesian_product(0..width)
                 .into_iter()
                 // Bind as (y, x) because the cartesian product is (0..height) X (0..width)
                 .map(|(y, x)| {
-                    let re = scale * (inv_width * x as f64 - 0.5);
-                    let im = scale * (inv_height * y as f64 - 0.5);
+                    let re = scale_x * (x as f64 - half_width);
+                    let im = scale_y * (y as f64 - half_height);
                     let z = Complex::new(re, im);
                     color_computer(z - offset)
                 })
