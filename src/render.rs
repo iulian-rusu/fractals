@@ -1,5 +1,3 @@
-use std::{cmp::max, ops::Range, usize};
-
 use crate::{
     color::Rgb,
     shared::{ColorComputer, Complex},
@@ -10,6 +8,7 @@ use futures::{
     Future, FutureExt,
 };
 use itertools::Itertools;
+use std::{cmp::max, ops::Range, usize};
 
 struct RenderedChunk {
     pub pixels: Vec<Rgb>,

@@ -1,20 +1,10 @@
-use std::{num::NonZeroUsize, time::Instant};
-
-use minifb::{Key, Window, WindowOptions};
-
 use crate::{
     color::Rgb,
     render::{RenderParams, Renderer},
     shared::{directon, ColorComputer, Complex},
 };
-
-const INITIAL_SCALE: f64 = 1.0;
-const ZOOM_FACTOR: f64 = 0.85;
-const SEED_DELTA: f64 = 0.001;
-const OFFSET_DELTA: f64 = 0.02;
-const INITIAL_OFFSET: Complex = Complex::new(0.0, 0.0);
-const INITIAL_SEED: Complex = Complex::new(-0.78, 0.136);
-const DEFAULT_RENDER_THREAD_COUNT: usize = 16;
+use minifb::{Key, Window, WindowOptions};
+use std::{num::NonZeroUsize, time::Instant};
 
 pub struct FractalExplorerApp<F: ColorComputer(Complex, Complex) -> Rgb> {
     window: Window,
@@ -29,27 +19,35 @@ pub struct FractalExplorerApp<F: ColorComputer(Complex, Complex) -> Rgb> {
     should_redraw: bool,
 }
 
-fn resolve_render_thread_count() -> usize {
-    std::thread::available_parallelism()
-        .map(NonZeroUsize::get)
-        .unwrap_or(DEFAULT_RENDER_THREAD_COUNT)
-}
-
 impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
+    const INITIAL_OFFSET: Complex = Complex::new(0.0, 0.0);
+    const INITIAL_SEED: Complex = Complex::new(-0.7768, 0.1374);
+    const OFFSET_DELTA: f64 = 0.02;
+    const SEED_DELTA: f64 = 0.001;
+    const INITIAL_SCALE: f64 = 1.0;
+    const ZOOM_FACTOR: f64 = 0.85;
+    const DEFAULT_RENDER_THREAD_COUNT: usize = 16;
+
     pub fn new(title: impl AsRef<str>, width: usize, height: usize, color_computer: F) -> Self {
         Self {
             window: Window::new(title.as_ref(), width, height, WindowOptions::default())
                 .unwrap_or_else(|e| panic!("{}", e)),
-            renderer: Renderer::new(resolve_render_thread_count()),
+            renderer: Renderer::new(Self::resolve_render_thread_count()),
             buffer: vec![0u32; width * height],
             color_computer,
             width,
             height,
-            scale: INITIAL_SCALE,
-            offset: INITIAL_OFFSET,
-            seed: INITIAL_SEED,
+            scale: Self::INITIAL_SCALE,
+            offset: Self::INITIAL_OFFSET,
+            seed: Self::INITIAL_SEED,
             should_redraw: true,
         }
+    }
+
+    fn resolve_render_thread_count() -> usize {
+        std::thread::available_parallelism()
+            .map(NonZeroUsize::get)
+            .unwrap_or(Self::DEFAULT_RENDER_THREAD_COUNT)
     }
 
     pub fn main_loop(&mut self) {
@@ -87,27 +85,27 @@ impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
 
     fn update_scale(&mut self, scroll_y: f32) {
         if scroll_y > 0f32 {
-            self.scale *= ZOOM_FACTOR;
+            self.scale *= Self::ZOOM_FACTOR;
         } else {
-            self.scale /= ZOOM_FACTOR;
+            self.scale /= Self::ZOOM_FACTOR;
         }
         self.should_redraw = true;
     }
 
     fn update_offset(&mut self, direction: Complex) {
-        self.offset += direction * OFFSET_DELTA * self.scale;
+        self.offset += direction * Self::OFFSET_DELTA * self.scale;
         self.should_redraw = true;
     }
 
     fn update_seed(&mut self, direction: Complex) {
-        self.seed += direction * SEED_DELTA * self.scale;
+        self.seed += direction * Self::SEED_DELTA * self.scale;
         self.should_redraw = true;
     }
 
     fn reset(&mut self) {
-        self.scale = INITIAL_SCALE;
-        self.offset = INITIAL_OFFSET;
-        self.seed = INITIAL_SEED;
+        self.scale = Self::INITIAL_SCALE;
+        self.offset = Self::INITIAL_OFFSET;
+        self.seed = Self::INITIAL_SEED;
         self.should_redraw = true;
     }
 
@@ -128,7 +126,11 @@ impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
         self.buffer.extend(pixels.map(Rgb::as_u32));
         let elapsed = start.elapsed();
 
-        println!("[Rendered {} pixels in {} ms]", self.buffer.len(), elapsed.as_millis());
+        println!(
+            "[Rendered {} pixels in {} ms]",
+            self.buffer.len(),
+            elapsed.as_millis()
+        );
         self.print_state();
         self.should_redraw = false;
     }

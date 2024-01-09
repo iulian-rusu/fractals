@@ -1,6 +1,5 @@
-use std::marker::Tuple;
-
 use crate::color::Rgb;
+use std::marker::Tuple;
 
 pub type Complex = nalgebra::Complex<f64>;
 

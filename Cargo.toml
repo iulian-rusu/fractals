@@ -9,4 +9,5 @@ edition = "2021"
 nalgebra = "0.32"
 minifb = "0.24.0"
 itertools = "0.11.0"
+once_cell = "1.19.0"
 futures = { version = "0.3.28", features = ["thread-pool"] }

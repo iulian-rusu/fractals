@@ -1,6 +1,7 @@
 #![feature(unboxed_closures, fn_traits, tuple_trait, int_roundings)]
 
 use crate::app::FractalExplorerApp;
+use color::palettes;
 
 mod app;
 mod color;
@@ -16,7 +17,7 @@ fn main() {
         "Fractal Explorer. (WASD to move, Arrow Keys to modify seed, R to reset)",
         WIDTH,
         HEIGHT,
-        |z, seed| color::grayscale(rules::julia(z, seed)),
+       |z, seed| palettes::BLUE_GREEN.color(rules::julia(z, seed))
     );
     app.main_loop();
 }
