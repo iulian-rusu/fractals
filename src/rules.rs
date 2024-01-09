@@ -22,10 +22,14 @@ pub fn mandelbrot(c: Complex) -> u8 {
 }
 
 #[allow(dead_code)]
-pub fn nova<const N: u32>(mut z: Complex, c: Complex) -> u8 {
-    let coef = (N - 1) as f64;
+pub fn nova(
+    mut z: Complex,
+    c: Complex,
+    f: impl Fn(Complex) -> Complex,
+    df: impl Fn(Complex) -> Complex,
+) -> u8 {
     for i in 0..MAX_ITERS {
-        let z_next = z - (z.powu(N) - 1.0) / (coef * z.powu(N - 1)) + c;
+        let z_next = z - f(z) / df(z) + c;
         if (z_next - z).abs() < EPSILON {
             return i;
         }
@@ -35,6 +39,10 @@ pub fn nova<const N: u32>(mut z: Complex, c: Complex) -> u8 {
 }
 
 #[allow(dead_code)]
-pub fn newton<const N: u32>(z: Complex) -> u8 {
-    nova::<N>(z, Complex::default())
+pub fn newton(
+    z: Complex,
+    f: impl Fn(Complex) -> Complex,
+    df: impl Fn(Complex) -> Complex,
+) -> u8 {
+    nova(z, Complex::default(), f, df)
 }

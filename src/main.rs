@@ -8,8 +8,8 @@ mod render;
 mod rules;
 mod shared;
 
-const WIDTH: usize = 1000;
-const HEIGHT: usize = 1000;
+const WIDTH: usize = 1280;
+const HEIGHT: usize = 720;
 
 fn main() {
     let mut app = FractalExplorerApp::new(
