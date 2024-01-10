@@ -34,9 +34,9 @@ impl Palette {
 
         for i in 0..Self::MAX_COLORS {
             let range_index = (i / range_len).min(range_count - 1);
-            let frac = (i - range_index * range_len) as f64 / range_len as f64;
+            let alpha = (i - range_index * range_len) as f64 / range_len as f64;
             let (start, end) = (gradient[range_index], gradient[range_index + 1]);
-            colors[i] = Self::interpolate_rgb(start, end, frac);
+            colors[i] = Self::interpolate_rgb(start, end, alpha);
         }
 
         Self { colors }
@@ -46,21 +46,21 @@ impl Palette {
         self.colors[value as usize]
     }
 
-    fn interpolate_rgb(start: Rgb, end: Rgb, frac: f64) -> Rgb {
-        if frac >= 1.0 {
+    fn interpolate_rgb(start: Rgb, end: Rgb, alpha: f64) -> Rgb {
+        if alpha >= 1.0 {
             return end;
         }
         Rgb(
-            Self::interpolate_u8(start.0, end.0, frac),
-            Self::interpolate_u8(start.1, end.1, frac),
-            Self::interpolate_u8(start.2, end.2, frac),
+            Self::interpolate_u8(start.0, end.0, alpha),
+            Self::interpolate_u8(start.1, end.1, alpha),
+            Self::interpolate_u8(start.2, end.2, alpha),
         )
     }
 
-    fn interpolate_u8(start: u8, end: u8, frac: f64) -> u8 {
+    fn interpolate_u8(start: u8, end: u8, alpha: f64) -> u8 {
         let start = start as f64;
         let end = end as f64;
-        (start + (end - start) * frac) as u8
+        (start + (end - start) * alpha) as u8
     }
 }
 
@@ -91,6 +91,31 @@ pub mod palettes {
             Rgb(5, 136, 218),
             Rgb(11, 204, 49),
             Rgb(33, 253, 43),
+            Rgb(0, 0, 0),
+        ])
+    });
+
+    pub static YELLOW_RED: Lazy<Palette> = Lazy::new(|| {
+        Palette::from_gradient(&[
+            Rgb(0, 0, 0),
+            Rgb(250, 255, 0),
+            Rgb(255, 168, 0),
+            Rgb(255, 77, 0),
+            Rgb(153, 41, 41),
+            Rgb(0, 0, 0),
+        ])
+    });
+
+    pub static RAINBOW: Lazy<Palette> = Lazy::new(|| {
+        Palette::from_gradient(&[
+            Rgb(255, 255, 255),
+            Rgb(255, 0, 0),
+            Rgb(255, 255, 0),
+            Rgb(0, 255, 255),
+            Rgb(127, 127, 255),
+            Rgb(255, 0, 255),
+            Rgb(0, 0, 255),
+            Rgb(0, 255, 0),
             Rgb(0, 0, 0),
         ])
     });
