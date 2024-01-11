@@ -2,7 +2,7 @@ use crate::{
     color::Rgb,
     render::Renderer,
     shared::{ColorComputer, Complex, Direction},
-    viewport::Viewport,
+    view::ComplexPlaneView,
 };
 use minifb::{Key, Window, WindowOptions};
 use std::{
@@ -14,8 +14,8 @@ use std::{
 pub struct FractalExplorerApp<F: ColorComputer(Complex, Complex) -> Rgb> {
     window: Window,
     renderer: Renderer,
-    viewport: Viewport,
     buffer: Vec<u32>,
+    view: ComplexPlaneView,
     color_computer: F,
     seed: Complex,
     should_redraw: bool,
@@ -23,7 +23,7 @@ pub struct FractalExplorerApp<F: ColorComputer(Complex, Complex) -> Rgb> {
 
 impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
     const INITIAL_SEED: Complex = Complex::new(-0.7768, 0.1374);
-    const SEED_DELTA: f64 = 0.001;
+    const BASE_SEED_STEP: f64 = 0.001;
     const DEFAULT_RENDER_THREAD_COUNT: usize = 16;
     const FRAMES_PER_SECOND: u32 = 60;
     const FRAME_DURATION: Duration = Duration::from_secs(1)
@@ -35,8 +35,8 @@ impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
             window: Window::new(title.as_ref(), width, height, WindowOptions::default())
                 .unwrap_or_else(|e| panic!("{}", e)),
             renderer: Renderer::new(Self::resolve_render_thread_count()),
-            viewport: Viewport::new(width, height),
             buffer: vec![0u32; width * height],
+            view: ComplexPlaneView::new(width, height),
             color_computer,
             seed: Self::INITIAL_SEED,
             should_redraw: true,
@@ -65,18 +65,18 @@ impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
 
     fn update(&mut self) {
         if let Some((_, y)) = self.window.get_scroll_wheel() {
-            self.update_scale(y);
+            self.update_view_scale(y);
         }
 
         self.window.get_keys().iter().for_each(|&k| match k {
-            Key::W => self.move_viewport(Direction::UP),
-            Key::S => self.move_viewport(Direction::DOWN),
-            Key::A => self.move_viewport(Direction::LEFT),
-            Key::D => self.move_viewport(Direction::RIGHT),
-            Key::Up => self.move_seed(Direction::UP),
-            Key::Down => self.move_seed(Direction::DOWN),
-            Key::Left => self.move_seed(Direction::LEFT),
-            Key::Right => self.move_seed(Direction::RIGHT),
+            Key::W => self.translate_view(Direction::Up),
+            Key::S => self.translate_view(Direction::Down),
+            Key::A => self.translate_view(Direction::Left),
+            Key::D => self.translate_view(Direction::Right),
+            Key::Up => self.translate_seed(Direction::Up),
+            Key::Down => self.translate_seed(Direction::Down),
+            Key::Left => self.translate_seed(Direction::Left),
+            Key::Right => self.translate_seed(Direction::Right),
             Key::R => self.reset(),
             _ => (),
         });
@@ -85,38 +85,38 @@ impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
             self.redraw();
         }
         self.window
-            .update_with_buffer(&self.buffer, self.viewport.width(), self.viewport.height())
+            .update_with_buffer(&self.buffer, self.view.width(), self.view.height())
             .unwrap_or_else(|e| println!("Error updating window with buffer: {}", e));
     }
 
-    fn update_scale(&mut self, scroll_y: f32) {
+    fn update_view_scale(&mut self, scroll_y: f32) {
         if scroll_y > 0.0 {
-            self.viewport.zoom_out()
+            self.view.zoom_out()
         } else {
-            self.viewport.zoom_in()
+            self.view.zoom_in()
         }
         self.should_redraw = true;
     }
 
-    fn move_viewport(&mut self, direction: Direction) {
-        self.viewport.move_towards(direction);
+    fn translate_view(&mut self, direction: Direction) {
+        self.view.translate(direction);
         self.should_redraw = true;
     }
 
-    fn move_seed(&mut self, direction: Direction) {
-        self.seed += direction.as_complex() * Self::SEED_DELTA * self.viewport.scale();
+    fn translate_seed(&mut self, direction: Direction) {
+        self.seed += direction.as_complex() * Self::BASE_SEED_STEP * self.view.scale();
         self.should_redraw = true;
     }
 
     fn reset(&mut self) {
-        self.viewport.reset();
+        self.view.reset();
         self.seed = Self::INITIAL_SEED;
         self.should_redraw = true;
     }
 
     fn redraw(&mut self) {
         let start = Instant::now();
-        let pixels = self.renderer.render(&self.viewport, {
+        let pixels = self.renderer.render(&self.view, {
             let seed = self.seed;
             let color_computer = self.color_computer.clone();
             move |z| color_computer(z, seed)
@@ -131,13 +131,13 @@ impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
         println!(
             "[Rendered {}px ({}x{}) in {}ms ({} FPS)]",
             self.buffer.len(),
-            self.viewport.width(),
-            self.viewport.height(),
+            self.view.width(),
+            self.view.height(),
             elapsed.as_millis(),
             1000 / elapsed.as_millis()
         );
-        println!("Scale = {:+e}", self.viewport.scale());
-        println!("ViewportOffset = {}", self.viewport.offset());
+        println!("Scale = {:+e}", self.view.scale());
+        println!("ViewOffset = {}", self.view.offset());
         println!("Seed = {}", self.seed);
         println!("\n\n");
     }

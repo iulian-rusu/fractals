@@ -1,5 +1,4 @@
 #![feature(unboxed_closures, fn_traits, tuple_trait, int_roundings, const_option)]
-
 use crate::app::FractalExplorerApp;
 use color::palettes;
 
@@ -8,7 +7,7 @@ mod color;
 mod render;
 mod rules;
 mod shared;
-mod viewport;
+mod view;
 
 const WIDTH: usize = 1280;
 const HEIGHT: usize = 720;

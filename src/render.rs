@@ -1,7 +1,7 @@
 use crate::{
     color::Rgb,
     shared::{ColorComputer, Complex},
-    viewport::Viewport,
+    view::ComplexPlaneView,
 };
 use futures::{
     executor::{block_on_stream, ThreadPool},
@@ -35,22 +35,22 @@ impl Renderer {
 
     pub fn render<F: ColorComputer(Complex) -> Rgb>(
         &self,
-        viewport: &Viewport,
+        view: &ComplexPlaneView,
         color_computer: F,
     ) -> impl Iterator<Item = Rgb> {
         // Rows are divided into chunks to be rendered by a thread pool.
         // Grouping by row makes the result compatible with the memory layout of the window buffer
         // In the end, all task results are collected and sorted by row index.
-        let viewport_height = viewport.height();
-        let chunk_height = viewport_height.div_ceil(self.pool_size);
-        let handles: Vec<_> = (0..viewport_height)
+        let view_height = view.height();
+        let chunk_height = view_height.div_ceil(self.pool_size);
+        let handles: Vec<_> = (0..view_height)
             .step_by(chunk_height)
             .map(|chunk_start| {
-                let chunk_end = (chunk_start + chunk_height).min(viewport_height);
+                let chunk_end = (chunk_start + chunk_height).min(view_height);
                 self.thread_pool
                     .spawn_with_handle(self.render_chunk(
                         chunk_start..chunk_end,
-                        viewport,
+                        view,
                         color_computer.clone(),
                     ))
                     .expect("Spawning a render task should not fail")
@@ -68,18 +68,18 @@ impl Renderer {
     fn render_chunk<F: ColorComputer(Complex) -> Rgb>(
         &self,
         chunk_rows: Range<usize>,
-        viewport: &Viewport,
+        view: &ComplexPlaneView,
         color_computer: F,
     ) -> impl Future<Output = RenderedChunk> {
         let start_row = chunk_rows.start;
-        let viewport_width = viewport.width();
-        let viewport_mapper = viewport.mapper();
+        let view_width = view.width();
+        let pixel_to_complex = view.pixel_mapper();
         async move {
             let pixels: Vec<Rgb> = chunk_rows
-                .cartesian_product(0..viewport_width)
+                .cartesian_product(0..view_width)
                 .into_iter()
                 // Bind as (y, x) because the cartesian product is (0..height) X (0..width)
-                .map(|(y, x)| viewport_mapper(x, y))
+                .map(|(y, x)| pixel_to_complex(x, y))
                 .map(|z| color_computer(z))
                 .collect::<Vec<_>>();
 
