@@ -19,7 +19,7 @@ pub fn mandelbrot(c: Complex) -> u8 {
     julia(Complex::default(), c)
 }
 
-pub fn nova<F1, F2>(mut z: Complex, c: Complex, f: &F1, df: &F2) -> u8
+pub fn nova<F1, F2>(mut z: Complex, c: Complex, f: F1, df: F2) -> u8
 where
     F1: Fn(Complex) -> Complex,
     F2: Fn(Complex) -> Complex,
@@ -34,7 +34,7 @@ where
     u8::MAX
 }
 
-pub fn newtona<F1, F2>(z: Complex, f: &F1, df: &F2) -> u8
+pub fn newton<F1, F2>(z: Complex, f: F1, df: F2) -> u8
 where
     F1: Fn(Complex) -> Complex,
     F2: Fn(Complex) -> Complex,

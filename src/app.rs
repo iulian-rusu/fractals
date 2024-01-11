@@ -22,7 +22,7 @@ pub struct FractalExplorerApp<F: ColorComputer(Complex, Complex) -> Rgb> {
 }
 
 impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
-    const INITIAL_SEED: Complex = Complex::new(-0.7768, 0.1374);
+    const INITIAL_SEED: Complex = Complex::new(-1.4657, 0.9265);
     const BASE_SEED_STEP: f64 = 0.001;
     const DEFAULT_RENDER_THREAD_COUNT: usize = 16;
     const FRAMES_PER_SECOND: u32 = 60;
