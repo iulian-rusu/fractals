@@ -1,6 +1,7 @@
 use crate::{
     color::Rgb,
-    shared::{ColorComputer, Complex},
+    rules::simd::{Array, SimdComplex},
+    shared::{Complex, RenderFn},
     view::ComplexPlaneView,
 };
 use futures::{
@@ -33,7 +34,7 @@ impl Renderer {
         }
     }
 
-    pub fn render<F: ColorComputer(Complex) -> Rgb>(
+    pub fn render<F: RenderFn(SimdComplex) -> Array<Rgb>>(
         &self,
         view: &ComplexPlaneView,
         color_computer: F,
@@ -48,7 +49,7 @@ impl Renderer {
             .map(|chunk_start| {
                 let chunk_end = (chunk_start + chunk_height).min(view_height);
                 self.thread_pool
-                    .spawn_with_handle(self.render_chunk(
+                    .spawn_with_handle(self.simd_render_chunk(
                         chunk_start..chunk_end,
                         view,
                         color_computer.clone(),
@@ -65,25 +66,39 @@ impl Renderer {
             .flatten()
     }
 
-    fn render_chunk<F: ColorComputer(Complex) -> Rgb>(
+    fn simd_render_chunk<F: RenderFn(SimdComplex) -> Array<Rgb>>(
         &self,
         chunk_rows: Range<usize>,
         view: &ComplexPlaneView,
         color_computer: F,
     ) -> impl Future<Output = RenderedChunk> {
-        let start_row = chunk_rows.start;
         let view_width = view.width();
+        let start_row = chunk_rows.start;
+        let chunk_height = chunk_rows.end - chunk_rows.start;
+        let chunk_size = chunk_height * view_width;
         let pixel_to_complex = view.pixel_mapper();
         async move {
             let pixels: Vec<Rgb> = chunk_rows
                 .cartesian_product(0..view_width)
-                .into_iter()
-                // Bind as (y, x) because the cartesian product is (0..height) X (0..width)
                 .map(|(y, x)| pixel_to_complex(x, y))
-                .map(|z| color_computer(z))
-                .collect::<Vec<_>>();
+                .chunks(SimdComplex::LANES)
+                .into_iter()
+                .map(|chunk| Self::chunk_to_simd_complex(chunk))
+                .map(color_computer)
+                .flatten()
+                .take(chunk_size)
+                .collect();
 
             RenderedChunk { pixels, start_row }
         }
+    }
+    
+    fn chunk_to_simd_complex(chunk: impl Iterator<Item = Complex>) -> SimdComplex {
+        let mut res = SimdComplex::default();
+        for (i, z) in chunk.enumerate() {
+            res.re[i] = z.re;
+            res.im[i] = z.im;
+        }
+        res
     }
 }

@@ -1,6 +1,15 @@
-#![feature(unboxed_closures, fn_traits, tuple_trait, int_roundings, const_option)]
+#![feature(
+    unboxed_closures,
+    fn_traits,
+    tuple_trait,
+    int_roundings,
+    const_option,
+    portable_simd
+)]
+
 use crate::app::FractalExplorerApp;
 use color::palettes;
+use rules::simd::SimdComplex;
 
 mod app;
 mod color;
@@ -18,12 +27,7 @@ fn main() {
         WIDTH,
         HEIGHT,
         |z, seed| {
-            palettes::BLUE_GREEN.color(rules::nova(
-                z,
-                seed,
-                |z| (z - 1.0).powu(3),
-                |z| 2.0 * z.powu(2),
-            ))
+            palettes::YELLOW_RED.color_array(rules::julia(z, SimdComplex::from_complex(seed)))
         },
     );
     app.main_loop();

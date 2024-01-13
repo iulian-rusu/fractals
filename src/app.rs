@@ -1,28 +1,34 @@
 use crate::{
     color::Rgb,
     render::Renderer,
-    shared::{ColorComputer, Complex, Direction},
+    rules::simd::{Array, SimdComplex},
+    shared::{Complex, Direction, RenderFn},
     view::ComplexPlaneView,
 };
-use minifb::{Key, Window, WindowOptions};
+use minifb::{Key, KeyRepeat, Window, WindowOptions};
+use minifb_fonts::{font6x8, FbFontRenderer};
 use std::{
     num::NonZeroUsize,
     thread,
     time::{Duration, Instant},
 };
 
-pub struct FractalExplorerApp<F: ColorComputer(Complex, Complex) -> Rgb> {
+pub struct FractalExplorerApp<F: RenderFn(SimdComplex, Complex) -> Array<Rgb>> {
     window: Window,
-    renderer: Renderer,
-    buffer: Vec<u32>,
+    frame_renderer: Renderer,
+    font_renderer: FbFontRenderer,
+    frame_buffer: Vec<u32>,
     view: ComplexPlaneView,
     color_computer: F,
     seed: Complex,
-    should_redraw: bool,
+    should_render: bool,
+    display_stats: bool,
 }
 
-impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
-    const INITIAL_SEED: Complex = Complex::new(-1.4657, 0.9265);
+impl<F: RenderFn(SimdComplex, Complex) -> Array<Rgb>> FractalExplorerApp<F> {
+    const STATS_TEXT_POS_X: usize = 20;
+    const FONT_COLOR: Rgb = Rgb(255, 255, 255);
+    const INITIAL_SEED: Complex = Complex::new(-0.9732, 0.2567);
     const BASE_SEED_STEP: f64 = 0.001;
     const DEFAULT_RENDER_THREAD_COUNT: usize = 16;
     const FRAMES_PER_SECOND: u32 = 60;
@@ -34,12 +40,14 @@ impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
         Self {
             window: Window::new(title.as_ref(), width, height, WindowOptions::default())
                 .unwrap_or_else(|e| panic!("{}", e)),
-            renderer: Renderer::new(Self::resolve_render_thread_count()),
-            buffer: vec![0u32; width * height],
+            frame_renderer: Renderer::new(Self::resolve_render_thread_count()),
+            font_renderer: font6x8::new_renderer(width, height, Self::FONT_COLOR.as_u32()),
+            frame_buffer: vec![0u32; width * height],
             view: ComplexPlaneView::new(width, height),
             color_computer,
             seed: Self::INITIAL_SEED,
-            should_redraw: true,
+            should_render: true,
+            display_stats: false,
         }
     }
 
@@ -77,16 +85,25 @@ impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
             Key::Down => self.translate_seed(Direction::Down),
             Key::Left => self.translate_seed(Direction::Left),
             Key::Right => self.translate_seed(Direction::Right),
-            Key::R => self.reset(),
             _ => (),
         });
 
-        if self.should_redraw {
-            self.redraw();
-        }
         self.window
-            .update_with_buffer(&self.buffer, self.view.width(), self.view.height())
-            .unwrap_or_else(|e| println!("Error updating window with buffer: {}", e));
+            .get_keys_pressed(KeyRepeat::No)
+            .iter()
+            .for_each(|&k| match k {
+                Key::Q => self.toggle_stat_display(),
+                Key::R => self.reset(),
+                _ => (),
+            });
+
+        if self.should_render {
+            self.render();
+        }
+
+        self.window
+            .update_with_buffer(&self.frame_buffer, self.view.width(), self.view.height())
+            .unwrap_or_else(|e| println!("Error updating main window with buffer: {}", e));
     }
 
     fn update_view_scale(&mut self, scroll_y: f32) {
@@ -95,50 +112,61 @@ impl<F: ColorComputer(Complex, Complex) -> Rgb> FractalExplorerApp<F> {
         } else {
             self.view.zoom_in()
         }
-        self.should_redraw = true;
+        self.should_render = true;
     }
 
     fn translate_view(&mut self, direction: Direction) {
         self.view.translate(direction);
-        self.should_redraw = true;
+        self.should_render = true;
     }
 
     fn translate_seed(&mut self, direction: Direction) {
         self.seed += direction.as_complex() * Self::BASE_SEED_STEP * self.view.scale();
-        self.should_redraw = true;
+        self.should_render = true;
+    }
+
+    fn toggle_stat_display(&mut self) {
+        self.display_stats = !self.display_stats;
+        self.should_render = true;
     }
 
     fn reset(&mut self) {
         self.view.reset();
         self.seed = Self::INITIAL_SEED;
-        self.should_redraw = true;
+        self.should_render = true;
     }
 
-    fn redraw(&mut self) {
+    fn render(&mut self) {
         let start = Instant::now();
-        let pixels = self.renderer.render(&self.view, {
+        let pixels = self.frame_renderer.render(&self.view, {
             let seed = self.seed;
             let color_computer = self.color_computer.clone();
             move |z| color_computer(z, seed)
         });
-        self.buffer.clear();
-        self.buffer.extend(pixels.map(Rgb::as_u32));
-        self.should_redraw = false;
-        self.display_metrics(start.elapsed());
+        self.frame_buffer.clear();
+        self.frame_buffer.extend(pixels.map(Rgb::as_u32));
+        if self.display_stats {
+            self.render_stats(start.elapsed());
+        }
+        self.should_render = false;
     }
 
-    fn display_metrics(&self, elapsed: Duration) {
-        println!(
-            "[Rendered {}px ({}x{}) in {}ms ({} FPS)]",
-            self.buffer.len(),
-            self.view.width(),
-            self.view.height(),
-            elapsed.as_millis(),
-            1000 / elapsed.as_millis()
+    fn render_stats(&mut self, render_time: Duration) {
+        self.render_text(
+            20,
+            &format!(
+                "RenderTime = {} ms ({:6.3} FPS)",
+                render_time.as_millis(),
+                1.0 / render_time.as_secs_f64()
+            ),
         );
-        println!("Scale = {:+e}", self.view.scale());
-        println!("ViewOffset = {}", self.view.offset());
-        println!("Seed = {}", self.seed);
-        println!("\n\n");
+        self.render_text(40, &format!("Scale = {:+e}", self.view.scale()));
+        self.render_text(60, &format!("Offset = {:.5}", self.view.offset()));
+        self.render_text(80, &format!("Seed = {:.5}", self.seed));
+    }
+
+    fn render_text(&mut self, pos_y: usize, text: &str) {
+        self.font_renderer
+            .draw_text(&mut self.frame_buffer, Self::STATS_TEXT_POS_X, pos_y, text);
     }
 }

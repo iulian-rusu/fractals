@@ -1,4 +1,3 @@
-use crate::color::Rgb;
 use std::marker::Tuple;
 
 pub type Complex = nalgebra::Complex<f64>;
@@ -8,7 +7,7 @@ pub enum Direction {
     Up,
     Down,
     Left,
-    Right
+    Right,
 }
 
 impl Direction {
@@ -25,7 +24,7 @@ impl Direction {
 pub trait Shareable: Send + Clone + 'static {}
 impl<T: Send + Clone + 'static> Shareable for T {}
 
-/// Trait for types which can be used by a renderer to compute RGB values.
+/// Trait for function types which can be used by a renderer to compute color values.
 /// The type has to be "nice" enough to allow cloning and sending to other threads, hence the `Shareable` requirement.
-pub trait ColorComputer<Args: Tuple>: Fn<Args, Output = Rgb> + Shareable {}
-impl<Args: Tuple, T: Fn<Args, Output = Rgb> + Shareable> ColorComputer<Args> for T {}
+pub trait RenderFn<Args: Tuple>: Fn<Args> + Shareable {}
+impl<Args: Tuple, F> RenderFn<Args> for F where F: Fn<Args> + Shareable {}

@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use crate::rules::MAX_ITERS;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Rgb(pub u8, pub u8, pub u8);
 
@@ -19,7 +21,7 @@ pub struct Palette {
 }
 
 impl Palette {
-    const MAX_COLORS: usize = 256;
+    const MAX_COLORS: usize = MAX_ITERS as usize + 1;
 
     pub fn from_gradient(gradient: &[Rgb]) -> Self {
         assert!(
@@ -44,6 +46,10 @@ impl Palette {
 
     pub fn color(&self, value: u8) -> Rgb {
         self.colors[value as usize]
+    }
+
+    pub fn color_array<const N: usize>(&self, values: [u8; N]) -> [Rgb; N] {
+        values.map(|v| self.color(v))
     }
 
     fn interpolate_rgb(start: Rgb, end: Rgb, alpha: f64) -> Rgb {
