@@ -1,4 +1,4 @@
-use crate::shared::{Complex, Direction};
+use crate::utils::{Complex, Direction};
 
 /// Defines a rectangular view of the Complex plane.
 /// A zero offset means the view is centered on (0, 0).

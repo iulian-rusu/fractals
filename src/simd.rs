@@ -1,6 +1,6 @@
 use nalgebra::ComplexField;
 
-use crate::shared::Complex;
+use crate::utils::Complex;
 use std::{
     ops::{Add, Div, Mul, Sub},
     simd::{Mask, Simd},
@@ -169,7 +169,7 @@ impl Div<f64> for SimdComplex {
 
 #[cfg(test)]
 mod tests {
-    use crate::{rules::simd::SimdComplex, shared::Complex};
+    use crate::{simd::SimdComplex, utils::Complex};
     use itertools::Itertools;
 
     #[test]

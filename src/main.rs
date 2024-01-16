@@ -9,13 +9,14 @@
 
 use crate::app::FractalExplorerApp;
 use color::palettes;
-use rules::simd::SimdComplex;
+use simd::SimdComplex;
 
 mod app;
 mod color;
 mod render;
 mod rules;
-mod shared;
+mod simd;
+mod utils;
 mod view;
 
 const WIDTH: usize = 1280;

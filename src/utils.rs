@@ -21,10 +21,6 @@ impl Direction {
     }
 }
 
-pub trait Shareable: Send + Clone + 'static {}
-impl<T: Send + Clone + 'static> Shareable for T {}
-
-/// Trait for function types which can be used by a renderer to compute color values.
-/// The type has to be "nice" enough to allow cloning and sending to other threads, hence the `Shareable` requirement.
-pub trait RenderFn<Args: Tuple>: Fn<Args> + Shareable {}
-impl<Args: Tuple, F> RenderFn<Args> for F where F: Fn<Args> + Shareable {}
+/// Trait for function types which can be sent between threads.
+pub trait FnSend<Args: Tuple>: Fn<Args> + Send + 'static {}
+impl<Args: Tuple, F> FnSend<Args> for F where F: Fn<Args> + Send + 'static {}

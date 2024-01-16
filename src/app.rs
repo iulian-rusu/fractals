@@ -1,8 +1,8 @@
 use crate::{
     color::Rgb,
     render::Renderer,
-    rules::simd::{Array, SimdComplex},
-    shared::{Complex, Direction, RenderFn},
+    simd::{Array, SimdComplex},
+    utils::{Complex, Direction, FnSend},
     view::ComplexPlaneView,
 };
 use minifb::{Key, KeyRepeat, Window, WindowOptions};
@@ -13,7 +13,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub struct FractalExplorerApp<F: RenderFn(SimdComplex, Complex) -> Array<Rgb>> {
+pub struct FractalExplorerApp<F>
+where
+    F: FnSend(SimdComplex, Complex) -> Array<Rgb> + Clone,
+{
     window: Window,
     frame_renderer: Renderer,
     font_renderer: FbFontRenderer,
@@ -25,7 +28,10 @@ pub struct FractalExplorerApp<F: RenderFn(SimdComplex, Complex) -> Array<Rgb>> {
     display_stats: bool,
 }
 
-impl<F: RenderFn(SimdComplex, Complex) -> Array<Rgb>> FractalExplorerApp<F> {
+impl<F> FractalExplorerApp<F>
+where
+    F: FnSend(SimdComplex, Complex) -> Array<Rgb> + Clone,
+{
     const STATS_TEXT_POS_X: usize = 20;
     const FONT_COLOR: Rgb = Rgb(255, 255, 255);
     const INITIAL_SEED: Complex = Complex::new(-0.9732, 0.2567);

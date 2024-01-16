@@ -1,7 +1,7 @@
 use crate::{
     color::Rgb,
-    rules::simd::{Array, SimdComplex},
-    shared::{Complex, RenderFn},
+    simd::{Array, SimdComplex},
+    utils::{Complex, FnSend},
     view::ComplexPlaneView,
 };
 use futures::{
@@ -34,11 +34,10 @@ impl Renderer {
         }
     }
 
-    pub fn render<F: RenderFn(SimdComplex) -> Array<Rgb>>(
-        &self,
-        view: &ComplexPlaneView,
-        color_computer: F,
-    ) -> impl Iterator<Item = Rgb> {
+    pub fn render<F>(&self, view: &ComplexPlaneView, color_computer: F) -> impl Iterator<Item = Rgb>
+    where
+        F: FnSend(SimdComplex) -> Array<Rgb> + Clone,
+    {
         // Rows are divided into chunks to be rendered by a thread pool.
         // Grouping by row makes the result compatible with the memory layout of the window buffer
         // In the end, all task results are collected and sorted by row index.
@@ -66,12 +65,15 @@ impl Renderer {
             .flatten()
     }
 
-    fn simd_render_chunk<F: RenderFn(SimdComplex) -> Array<Rgb>>(
+    fn simd_render_chunk<F>(
         &self,
         chunk_rows: Range<usize>,
         view: &ComplexPlaneView,
         color_computer: F,
-    ) -> impl Future<Output = RenderedChunk> {
+    ) -> impl Future<Output = RenderedChunk>
+    where
+        F: FnSend(SimdComplex) -> Array<Rgb>,
+    {
         let view_width = view.width();
         let start_row = chunk_rows.start;
         let chunk_height = chunk_rows.end - chunk_rows.start;
@@ -92,7 +94,7 @@ impl Renderer {
             RenderedChunk { pixels, start_row }
         }
     }
-    
+
     fn chunk_to_simd_complex(chunk: impl Iterator<Item = Complex>) -> SimdComplex {
         let mut res = SimdComplex::default();
         for (i, z) in chunk.enumerate() {
