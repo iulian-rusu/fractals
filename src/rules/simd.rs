@@ -3,7 +3,7 @@ use nalgebra::ComplexField;
 use crate::shared::Complex;
 use std::{
     ops::{Add, Div, Mul, Sub},
-    simd::{Simd, Mask},
+    simd::{Mask, Simd},
 };
 
 /// SIMD parallelization factor, chosen empirically.
@@ -170,21 +170,81 @@ impl Div<f64> for SimdComplex {
 #[cfg(test)]
 mod tests {
     use crate::{rules::simd::SimdComplex, shared::Complex};
+    use itertools::Itertools;
 
     #[test]
-    fn division() {
-        check_division(Complex::new(0.0, 0.0), Complex::new(4.0, 7.0));
-        check_division(Complex::new(1.0, 0.0), Complex::new(1.0, 0.0));
-        check_division(Complex::new(0.0, 1.0), Complex::new(1.0, 0.0));
-        check_division(Complex::new(6.0, 5.0), Complex::new(0.0, 1.0));
-        check_division(Complex::new(2.0, 3.0), Complex::new(4.0, 6.0));
-        check_division(Complex::new(-3.0, 5.0), Complex::new(3.0, -5.0));
-        check_division(Complex::new(2.0, 3.0), Complex::new(-5.0, 4.0));
+    fn addition_works() {
+        for (lhs, rhs) in complex_numbers_with_zero().tuple_windows() {
+            check_addition(lhs, rhs);
+        }
+    }
+
+    #[test]
+    fn subtraction_worls() {
+        for (lhs, rhs) in complex_numbers_with_zero().tuple_windows() {
+            check_subtraction(lhs, rhs);
+        }
+    }
+
+    #[test]
+    fn multiplication_by_one_works() {
+        check_multiplication(Complex::new(420.69, 13.37), Complex::new(1.0, 0.0));
+    }
+
+    #[test]
+    fn multiplication_works() {
+        for (lhs, rhs) in complex_numbers_with_zero().tuple_windows() {
+            check_multiplication(lhs, rhs);
+        }
+    }
+
+    #[test]
+    fn division_by_one_works() {
+        check_division(Complex::new(3.14, 2.78), Complex::new(1.0, 0.0));
+    }
+
+    #[test]
+    fn division_by_nonzero_works() {
+        for (lhs, rhs) in complex_numbers_without_zero().tuple_windows() {
+            check_division(lhs, rhs);
+        }
+    }
+
+    fn complex_numbers_without_zero() -> impl Iterator<Item = Complex> {
+        (-10..10)
+            .cartesian_product(-10..10)
+            .map(|(x, y)| (0.33 + x as f64, 0.67 + y as f64))
+            .map(|(x, y)| Complex::new(x, y))
+    }
+
+    fn complex_numbers_with_zero() -> impl Iterator<Item = Complex> {
+        complex_numbers_without_zero().chain(std::iter::once(Complex::default()))
+    }
+
+    macro_rules! check_op {
+        ($lhs:expr, $rhs:expr, $op:tt) => {
+            let simd_lhs = SimdComplex::from_complex($lhs);
+            let simd_rhs = SimdComplex::from_complex($rhs);
+            assert_eq!(
+                simd_lhs $op simd_rhs,
+                SimdComplex::from_complex($lhs $op $rhs)
+            );
+        }
+    }
+
+    fn check_addition(lhs: Complex, rhs: Complex) {
+        check_op!(lhs, rhs, +);
+    }
+
+    fn check_subtraction(lhs: Complex, rhs: Complex) {
+        check_op!(lhs, rhs, -);
+    }
+
+    fn check_multiplication(lhs: Complex, rhs: Complex) {
+        check_op!(lhs, rhs, *);
     }
 
     fn check_division(lhs: Complex, rhs: Complex) {
-        let simd_lhs = SimdComplex::from_complex(lhs);
-        let simd_rhs = SimdComplex::from_complex(rhs);
-        assert_eq!(simd_lhs / simd_rhs, SimdComplex::from_complex(lhs / rhs));
+        check_op!(lhs, rhs, -);
     }
 }

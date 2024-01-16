@@ -4,14 +4,14 @@ use self::simd::{Array, SimdComplex, SimdCounter, SimdDouble, SIMD_LANES};
 use std::simd::SimdPartialOrd;
 
 pub const MAX_ITERS: u8 = u8::MAX;
-const SIMD_EPSILON: SimdDouble = SimdDouble::from_array([1e-10; SIMD_LANES]);
-const SIMD_FOUR: SimdDouble = SimdDouble::from_array([4.0; SIMD_LANES]);
+const EPSILON: SimdDouble = SimdDouble::from_array([1e-10; SIMD_LANES]);
+const ESCAPE_RADIUS_SQR: SimdDouble = SimdDouble::from_array([4.0; SIMD_LANES]);
 
 #[allow(dead_code)]
 pub fn julia(mut z: SimdComplex, c: SimdComplex) -> Array<u8> {
     let mut cnt = SimdCounter::new();
     for _ in 0..MAX_ITERS {
-        cnt.increment_where(z.norm_squared().simd_lt(SIMD_FOUR));
+        cnt.increment_where(z.norm_squared().simd_lt(ESCAPE_RADIUS_SQR));
         if !cnt.modified() {
             break;
         }
@@ -35,7 +35,7 @@ pub fn nova(
     let mut cnt = SimdCounter::new();
     for _ in 0..MAX_ITERS {
         let z_next = z - f(z) / df(z) + c;
-        cnt.increment_where((z_next - z).norm_squared().simd_ge(SIMD_EPSILON));
+        cnt.increment_where((z_next - z).norm_squared().simd_ge(EPSILON));
         if !cnt.modified() {
             break;
         }
