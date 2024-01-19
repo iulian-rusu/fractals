@@ -23,7 +23,7 @@ pub struct SimdCounter {
 impl SimdCounter {
     pub fn new() -> Self {
         Self {
-            counts: Simd::<i64, SIMD_LANES>::from_array([0; SIMD_LANES]),
+            counts: Simd::<i64, SIMD_LANES>::splat(0),
             modified: false,
         }
     }
@@ -52,15 +52,15 @@ pub struct SimdComplex {
 impl SimdComplex {
     pub const LANES: usize = SimdDouble::LANES;
 
-    pub fn new(re: f64, im: f64) -> Self {
+    pub fn splat(re: f64, im: f64) -> Self {
         Self {
-            re: SimdDouble::from_array([re; Self::LANES]),
-            im: SimdDouble::from_array([im; Self::LANES]),
+            re: SimdDouble::splat(re),
+            im: SimdDouble::splat(im),
         }
     }
 
     pub fn from_complex(z: Complex) -> Self {
-        Self::new(z.real(), z.imaginary())
+        Self::splat(z.real(), z.imaginary())
     }
 
     pub fn norm_squared(&self) -> SimdDouble {
@@ -70,7 +70,7 @@ impl SimdComplex {
 
 impl Default for SimdComplex {
     fn default() -> Self {
-        Self::new(0.0, 0.0)
+        Self::splat(0.0, 0.0)
     }
 }
 
@@ -90,7 +90,7 @@ impl Add<f64> for SimdComplex {
 
     fn add(self, rhs: f64) -> Self::Output {
         Self {
-            re: self.re + SimdDouble::from_array([rhs; Self::LANES]),
+            re: self.re + SimdDouble::splat(rhs),
             im: self.im,
         }
     }
@@ -112,7 +112,7 @@ impl Sub<f64> for SimdComplex {
 
     fn sub(self, rhs: f64) -> Self::Output {
         Self {
-            re: self.re - SimdDouble::from_array([rhs; Self::LANES]),
+            re: self.re - SimdDouble::splat(rhs),
             im: self.im,
         }
     }
@@ -133,7 +133,7 @@ impl Mul<f64> for SimdComplex {
     type Output = SimdComplex;
 
     fn mul(self, rhs: f64) -> Self::Output {
-        let factor = SimdDouble::from_array([rhs; Self::LANES]);
+        let factor = SimdDouble::splat(rhs);
         Self {
             re: self.re * factor,
             im: self.im * factor,
@@ -159,7 +159,7 @@ impl Div<f64> for SimdComplex {
     type Output = SimdComplex;
 
     fn div(self, rhs: f64) -> Self::Output {
-        let factor = SimdDouble::from_array([rhs; Self::LANES]);
+        let factor = SimdDouble::splat(rhs);
         Self {
             re: self.re / factor,
             im: self.im / factor,

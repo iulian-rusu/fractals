@@ -2,20 +2,19 @@ use crate::{
     color::Rgb,
     render::Renderer,
     simd::{Array, SimdComplex},
-    utils::{Complex, Direction, FnSend},
+    utils::{Complex, Direction, FnSync},
     view::ComplexPlaneView,
 };
 use minifb::{Key, KeyRepeat, Window, WindowOptions};
 use minifb_fonts::{font6x8, FbFontRenderer};
 use std::{
-    num::NonZeroUsize,
     thread,
     time::{Duration, Instant},
 };
 
 pub struct FractalExplorerApp<F>
 where
-    F: FnSend(SimdComplex, Complex) -> Array<Rgb> + Clone,
+    F: FnSync(SimdComplex, Complex) -> Array<Rgb>,
 {
     window: Window,
     frame_renderer: Renderer,
@@ -30,13 +29,12 @@ where
 
 impl<F> FractalExplorerApp<F>
 where
-    F: FnSend(SimdComplex, Complex) -> Array<Rgb> + Clone,
+    F: FnSync(SimdComplex, Complex) -> Array<Rgb>,
 {
-    const STATS_TEXT_POS_X: usize = 20;
-    const FONT_COLOR: Rgb = Rgb(255, 255, 255);
     const INITIAL_SEED: Complex = Complex::new(-0.9732, 0.2567);
     const BASE_SEED_STEP: f64 = 0.001;
-    const DEFAULT_RENDER_THREAD_COUNT: usize = 16;
+    const FONT_COLOR: Rgb = Rgb(255, 255, 255);
+    const TEXT_POS_X: usize = 20;
     const FRAMES_PER_SECOND: u32 = 60;
     const FRAME_DURATION: Duration = Duration::from_secs(1)
         .checked_div(Self::FRAMES_PER_SECOND)
@@ -46,7 +44,7 @@ where
         Self {
             window: Window::new(title.as_ref(), width, height, WindowOptions::default())
                 .unwrap_or_else(|e| panic!("{}", e)),
-            frame_renderer: Renderer::new(Self::resolve_render_thread_count()),
+            frame_renderer: Renderer::new(),
             font_renderer: font6x8::new_renderer(width, height, Self::FONT_COLOR.as_u32()),
             frame_buffer: vec![0u32; width * height],
             view: ComplexPlaneView::new(width, height),
@@ -55,12 +53,6 @@ where
             should_render: true,
             display_stats: false,
         }
-    }
-
-    fn resolve_render_thread_count() -> usize {
-        std::thread::available_parallelism()
-            .map(NonZeroUsize::get)
-            .unwrap_or(Self::DEFAULT_RENDER_THREAD_COUNT)
     }
 
     pub fn main_loop(&mut self) {
@@ -146,7 +138,7 @@ where
         let start = Instant::now();
         let pixels = self.frame_renderer.render(&self.view, {
             let seed = self.seed;
-            let color_computer = self.color_computer.clone();
+            let color_computer = &self.color_computer;
             move |z| color_computer(z, seed)
         });
         self.frame_buffer.clear();
@@ -173,6 +165,6 @@ where
 
     fn render_text(&mut self, pos_y: usize, text: &str) {
         self.font_renderer
-            .draw_text(&mut self.frame_buffer, Self::STATS_TEXT_POS_X, pos_y, text);
+            .draw_text(&mut self.frame_buffer, Self::TEXT_POS_X, pos_y, text);
     }
 }

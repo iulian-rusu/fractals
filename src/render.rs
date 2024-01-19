@@ -1,68 +1,53 @@
 use crate::{
     color::Rgb,
     simd::{Array, SimdComplex},
-    utils::{Complex, FnSend},
+    utils::{Complex, FnSync},
     view::ComplexPlaneView,
 };
-use futures::{
-    executor::{block_on_stream, ThreadPool},
-    task::SpawnExt,
-    Future, FutureExt,
-};
 use itertools::Itertools;
-use std::{ops::Range, usize};
-
-struct RenderedChunk {
-    pub pixels: Vec<Rgb>,
-    pub start_row: usize,
-}
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+use std::{num::NonZeroUsize, ops::Range, usize};
 
 pub struct Renderer {
-    thread_pool: ThreadPool,
-    pool_size: usize,
+    chunk_count: usize,
 }
 
 impl Renderer {
-    pub fn new(pool_size: usize) -> Self {
-        let thread_pool = ThreadPool::builder()
-            .pool_size(pool_size)
-            .create()
-            .expect("Failed to create render thread pool");
+    const DEFAULT_CHUNK_COUNT: usize = 16;
+
+    pub fn new() -> Self {
         Self {
-            thread_pool,
-            pool_size,
+            chunk_count: Self::resolve_chunk_count(),
         }
+    }
+
+    fn resolve_chunk_count() -> usize {
+        std::thread::available_parallelism()
+            .map(NonZeroUsize::get)
+            .unwrap_or(Self::DEFAULT_CHUNK_COUNT)
     }
 
     pub fn render<F>(&self, view: &ComplexPlaneView, color_computer: F) -> impl Iterator<Item = Rgb>
     where
-        F: FnSend(SimdComplex) -> Array<Rgb> + Clone,
+        F: FnSync(SimdComplex) -> Array<Rgb>,
     {
-        // Rows are divided into chunks to be rendered by a thread pool.
-        // Grouping by row makes the result compatible with the memory layout of the window buffer
-        // In the end, all task results are collected and sorted by row index.
         let view_height = view.height();
-        let chunk_height = view_height.div_ceil(self.pool_size);
-        let handles: Vec<_> = (0..view_height)
-            .step_by(chunk_height)
-            .map(|chunk_start| {
-                let chunk_end = (chunk_start + chunk_height).min(view_height);
-                self.thread_pool
-                    .spawn_with_handle(self.simd_render_chunk(
-                        chunk_start..chunk_end,
-                        view,
-                        color_computer.clone(),
-                    ))
-                    .expect("Spawning a render task should not fail")
-                    .into_stream()
-            })
-            .collect();
+        let chunk_height = view_height.div_ceil(self.chunk_count);
 
-        block_on_stream(futures::stream::select_all(handles))
-            // Results must be sorted because each chunk is rendered in non-deterministic order.
-            .sorted_by_key(|chunk| chunk.start_row)
-            .map(|chunk| chunk.pixels)
-            .flatten()
+        let mut chunks: Vec<_> = Vec::with_capacity(self.chunk_count);
+        (0..view_height)
+            .step_by(chunk_height)
+            // Collecting here before converting to a parallel iterator allows 
+            // using the order-preserving `collect_into_vec` later.
+            // Otherwise, we would need to sort the chunks by row index.
+            .collect_vec()
+            .into_par_iter()
+            .map(move |chunk_start| {
+                let chunk_end = (chunk_start + chunk_height).min(view_height);
+                self.simd_render_chunk(chunk_start..chunk_end, view, &color_computer)
+            })
+            .collect_into_vec(&mut chunks);
+        chunks.into_iter().flatten()
     }
 
     fn simd_render_chunk<F>(
@@ -70,29 +55,23 @@ impl Renderer {
         chunk_rows: Range<usize>,
         view: &ComplexPlaneView,
         color_computer: F,
-    ) -> impl Future<Output = RenderedChunk>
+    ) -> Vec<Rgb>
     where
-        F: FnSend(SimdComplex) -> Array<Rgb>,
+        F: FnSync(SimdComplex) -> Array<Rgb>,
     {
         let view_width = view.width();
-        let start_row = chunk_rows.start;
         let chunk_height = chunk_rows.end - chunk_rows.start;
         let chunk_size = chunk_height * view_width;
         let pixel_to_complex = view.pixel_mapper();
-        async move {
-            let pixels: Vec<Rgb> = chunk_rows
-                .cartesian_product(0..view_width)
-                .map(|(y, x)| pixel_to_complex(x, y))
-                .chunks(SimdComplex::LANES)
-                .into_iter()
-                .map(|chunk| Self::chunk_to_simd_complex(chunk))
-                .map(color_computer)
-                .flatten()
-                .take(chunk_size)
-                .collect();
-
-            RenderedChunk { pixels, start_row }
-        }
+        chunk_rows
+            .cartesian_product(0..view_width)
+            .map(|(y, x)| pixel_to_complex(x, y))
+            .chunks(SimdComplex::LANES)
+            .into_iter()
+            .map(|chunk| Self::chunk_to_simd_complex(chunk))
+            .flat_map(color_computer)
+            .take(chunk_size)
+            .collect_vec()
     }
 
     fn chunk_to_simd_complex(chunk: impl Iterator<Item = Complex>) -> SimdComplex {

@@ -21,6 +21,11 @@ impl Direction {
     }
 }
 
-/// Trait for function types which can be sent between threads.
-pub trait FnSend<Args: Tuple>: Fn<Args> + Send + 'static {}
-impl<Args: Tuple, F> FnSend<Args> for F where F: Fn<Args> + Send + 'static {}
+/// Trait for functions that can be shared and invoked by multiple threads.
+pub trait FnSync<Args: Tuple>: Fn<Args> + Sync + Send {}
+impl<Args: Tuple, F> FnSync<Args> for F
+where
+    F: Fn<Args> + Sync + Send,
+    F::Output: Send,
+{
+}
