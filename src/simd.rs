@@ -180,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    fn subtraction_worls() {
+    fn subtraction_works() {
         for (lhs, rhs) in complex_numbers_with_zero().tuple_windows() {
             check_subtraction(lhs, rhs);
         }
@@ -222,7 +222,7 @@ mod tests {
     }
 
     macro_rules! check_op {
-        ($lhs:expr, $rhs:expr, $op:tt) => {
+        ($op:tt, $lhs:expr, $rhs:expr) => {
             let simd_lhs = SimdComplex::from_complex($lhs);
             let simd_rhs = SimdComplex::from_complex($rhs);
             assert_eq!(
@@ -233,18 +233,18 @@ mod tests {
     }
 
     fn check_addition(lhs: Complex, rhs: Complex) {
-        check_op!(lhs, rhs, +);
+        check_op!(+, lhs, rhs);
     }
 
     fn check_subtraction(lhs: Complex, rhs: Complex) {
-        check_op!(lhs, rhs, -);
+        check_op!(-, lhs, rhs);
     }
 
     fn check_multiplication(lhs: Complex, rhs: Complex) {
-        check_op!(lhs, rhs, *);
+        check_op!(*, lhs, rhs);
     }
 
     fn check_division(lhs: Complex, rhs: Complex) {
-        check_op!(lhs, rhs, -);
+        check_op!(/, lhs, rhs);
     }
 }
