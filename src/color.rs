@@ -112,7 +112,21 @@ pub mod palettes {
         ])
     });
 
-    pub static RAINBOW: Lazy<Palette> = Lazy::new(|| {
+    pub static RAINBOW_DARK: Lazy<Palette> = Lazy::new(|| {
+        Palette::from_gradient(&[
+            Rgb(0, 0, 0),
+            Rgb(0, 255, 0),
+            Rgb(0, 0, 255),
+            Rgb(255, 0, 255),
+            Rgb(127, 127, 255),
+            Rgb(0, 255, 255),
+            Rgb(255, 255, 0),
+            Rgb(255, 0, 0),
+            Rgb(0, 0, 0),
+        ])
+    });
+
+    pub static RAINBOW_LIGHT: Lazy<Palette> = Lazy::new(|| {
         Palette::from_gradient(&[
             Rgb(255, 255, 255),
             Rgb(255, 0, 0),

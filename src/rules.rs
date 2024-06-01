@@ -1,10 +1,10 @@
-use crate::simd::{Array, SimdComplex, SimdCounter, SimdDouble, SIMD_LANES};
-use std::simd::SimdPartialOrd;
+use crate::simd::{Array, SimdComplex, SimdCounter, SimdDouble, SIMD_LEN};
+use std::simd::cmp::SimdPartialOrd;
 
 pub const MAX_ITERS: u8 = u8::MAX;
 
-const EPSILON: SimdDouble = SimdDouble::from_array([1e-10; SIMD_LANES]);
-const ESCAPE_RADIUS_SQUARED: SimdDouble = SimdDouble::from_array([4.0; SIMD_LANES]);
+const EPSILON: SimdDouble = SimdDouble::from_array([1e-10; SIMD_LEN]);
+const ESCAPE_RADIUS_SQUARED: SimdDouble = SimdDouble::from_array([4.0; SIMD_LEN]);
 
 #[allow(dead_code)]
 pub fn julia(mut z: SimdComplex, c: SimdComplex) -> Array<u8> {

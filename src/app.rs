@@ -31,7 +31,7 @@ impl<F> FractalExplorerApp<F>
 where
     F: FnSync(SimdComplex, Complex) -> Array<Rgb>,
 {
-    const INITIAL_SEED: Complex = Complex::new(-0.9732, 0.2567);
+    const INITIAL_SEED: Complex = Complex::new(-0.75, 0.2);
     const BASE_SEED_STEP: f64 = 0.001;
     const FONT_COLOR: Rgb = Rgb(255, 255, 255);
     const TEXT_POS_X: usize = 20;

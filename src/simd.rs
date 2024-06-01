@@ -1,34 +1,33 @@
-use nalgebra::ComplexField;
-
 use crate::utils::Complex;
+use nalgebra::ComplexField;
 use std::{
     ops::{Add, Div, Mul, Sub},
     simd::{Mask, Simd},
 };
 
 /// SIMD parallelization factor, chosen empirically.
-pub const SIMD_LANES: usize = 8;
+pub const SIMD_LEN: usize = 8;
 
-/// Array with size compatible with SIMD lane count
-pub type Array<T> = [T; SIMD_LANES];
+/// Array with size equal to SIMD vector length
+pub type Array<T> = [T; SIMD_LEN];
 
-pub type SimdDouble = Simd<f64, SIMD_LANES>;
+pub type SimdDouble = Simd<f64, SIMD_LEN>;
 
 #[derive(Debug, Clone)]
 pub struct SimdCounter {
-    counts: Simd<i64, SIMD_LANES>,
+    counts: Simd<i64, SIMD_LEN>,
     modified: bool,
 }
 
 impl SimdCounter {
     pub fn new() -> Self {
         Self {
-            counts: Simd::<i64, SIMD_LANES>::splat(0),
+            counts: Simd::<i64, SIMD_LEN>::splat(0),
             modified: false,
         }
     }
 
-    pub fn increment_where(&mut self, mask: Mask<i64, SIMD_LANES>) {
+    pub fn increment_where(&mut self, mask: Mask<i64, SIMD_LEN>) {
         // Subtract because true is converted to -1
         self.counts = self.counts - mask.to_int();
         self.modified = mask.any();
@@ -50,7 +49,7 @@ pub struct SimdComplex {
 }
 
 impl SimdComplex {
-    pub const LANES: usize = SimdDouble::LANES;
+    pub const LEN: usize = SimdDouble::LEN;
 
     pub fn splat(re: f64, im: f64) -> Self {
         Self {

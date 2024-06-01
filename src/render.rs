@@ -66,7 +66,7 @@ impl Renderer {
         chunk_rows
             .cartesian_product(0..view_width)
             .map(|(y, x)| pixel_to_complex(x, y))
-            .chunks(SimdComplex::LANES)
+            .chunks(SimdComplex::LEN)
             .into_iter()
             .map(|chunk| Self::chunk_to_simd_complex(chunk))
             .flat_map(color_computer)
